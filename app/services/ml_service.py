@@ -367,5 +367,58 @@ class MLStockAnalyzer:
         else:
             return "High Risk"
 
+    def analyze_news_sentiment(self, text: str) -> Dict:
+        """Analyze news headline for sentiment and impact"""
+        text = text.lower()
+        
+        # Keywords
+        bullish_terms = ['surge', 'jump', 'rise', 'gain', 'profit', 'record', 'growth', 'buy', 'deal', 'win', 'positive', 'upgrade']
+        bearish_terms = ['drop', 'fall', 'plunge', 'loss', 'down', 'crash', 'fear', 'inflation', 'war', 'negative', 'downgrade', 'rout', 'sell']
+        global_terms = ['fed', 'powell', 'rate', 'us', 'wall street', 'china', 'global', 'imf', 'world']
+        
+        score = 0
+        for word in bullish_terms:
+            if word in text: score += 1
+        for word in bearish_terms:
+            if word in text: score -= 1
+            
+        # Determine Sentiment
+        confidence = min(60 + abs(score) * 10, 95)
+        if score > 0:
+            sentiment = "Bullish"
+            prediction = "Expect positive momentum in the short term."
+        elif score < 0:
+            sentiment = "Bearish"
+            prediction = "Caution advised; potential for price correction."
+        else:
+            sentiment = "Neutral"
+            prediction = "Market reacting to mixed signals; watch for breakout."
+            confidence = 50
+            
+        # Global Impact Detection
+        is_global = any(term in text for term in global_terms)
+        summary = "AI Take: "
+        if is_global:
+            summary += "This is a global event that could trigger volatility in Indian markets. "
+            if sentiment == "Bearish":
+                prediction = "Global headwinds may drag down local indices (NIFTY/SENSEX)."
+            elif sentiment == "Bullish":
+                prediction = "Strong global cues likely to boost domestic sentiment."
+        
+        if sentiment == "Bullish":
+            summary += "Positive developments suggest investor confidence is rising."
+        elif sentiment == "Bearish":
+            summary += "Negative news flow indicates potential selling pressure."
+        else:
+            summary += "The news is currently being digested by the market."
+
+        return {
+            "sentiment": sentiment,
+            "confidence": confidence,
+            "summary": summary,
+            "prediction": prediction,
+            "isGlobal": is_global
+        }
+
 # Global instance
 ml_analyzer = MLStockAnalyzer()

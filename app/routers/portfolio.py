@@ -42,12 +42,23 @@ async def get_portfolio(
             cost_basis = portfolio_item.cost_basis * portfolio_item.shares
             gain = current_value - cost_basis
             
+            # Extract daily changes
+            day_change = stock_info.get('changeAmount', 0) * portfolio_item.shares
+            day_change_percent = stock_info.get('change', 0)
+            
+            yesterday_change = stock_info.get('yesterdayChange', 0) * portfolio_item.shares
+            yesterday_change_percent = stock_info.get('yesterdayChangePercent', 0)
+            
             holdings.append({
                 "symbol": portfolio_item.symbol,
                 "shares": portfolio_item.shares,
                 "costBasis": cost_basis,
                 "currentValue": current_value,
                 "gain": gain,
+                "dayChange": day_change,
+                "dayChangePercent": day_change_percent,
+                "yesterdayChange": yesterday_change,
+                "yesterdayChangePercent": yesterday_change_percent
             })
         except Exception as e:
             print(f"Error fetching stock {portfolio_item.symbol}: {e}")

@@ -7,6 +7,10 @@ class PortfolioHolding(BaseModel):
     costBasis: float
     currentValue: float
     gain: float
+    dayChange: float
+    dayChangePercent: float
+    yesterdayChange: float
+    yesterdayChangePercent: float
 
 class PortfolioResponse(BaseModel):
     holdings: List[PortfolioHolding]

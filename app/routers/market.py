@@ -4,6 +4,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.services.stock_data import StockDataService
+from app.services.ml_service import ml_analyzer
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -64,24 +65,59 @@ async def get_market_news(request: Request):
         for symbol in symbols:
             try:
                 ticker = yf.Ticker(symbol)
-                items = ticker.news[:5] if hasattr(ticker, "news") else []
+                items = ticker.news
+                
+                items = items[:5] if items else []
                 for item in items:
-                    title = item.get("title", "")
+                    # Handle nested structure from yfinance
+                    content = item.get('content', {})
+                    if not content:
+                        # Fallback for old structure or direct keys
+                        content = item
+                        
+                    title = content.get("title", "")
                     if not title or title in seen:
                         continue
                     seen.add(title)
+                    
+                    # Extract publisher
+                    provider = content.get("provider", {})
+                    publisher = provider.get("displayName", "") if isinstance(provider, dict) else ""
+                    
+                    # Extract link
+                    canonical = content.get("canonicalUrl", {})
+                    link = canonical.get("url", "") if isinstance(canonical, dict) else ""
+                    if not link:
+                        click_through = content.get("clickThroughUrl", {})
+                        link = click_through.get("url", "") if isinstance(click_through, dict) else ""
+                    
+                    # Extract Image URL
+                    thumbnail = content.get("thumbnail", {})
+                    image_url = ""
+                    if isinstance(thumbnail, dict):
+                        image_url = thumbnail.get("originalUrl", "")
+                        if not image_url:
+                            resolutions = thumbnail.get("resolutions", [])
+                            if resolutions and isinstance(resolutions, list):
+                                image_url = resolutions[0].get("url", "")
+
+                    # AI Analysis
+                    analysis = ml_analyzer.analyze_news_sentiment(title)
+
                     news_items.append({
                         "title": title,
-                        "publisher": item.get("publisher", ""),
-                        "link": item.get("link", ""),
-                        "providerPublishTime": item.get("providerPublishTime", None),
+                        "publisher": publisher,
+                        "link": link,
+                        "imageUrl": image_url,
+                        "providerPublishTime": content.get("pubDate", content.get("providerPublishTime")),
                         "symbol": symbol,
+                        "aiAnalysis": analysis
                     })
                     if len(news_items) >= 10:
                         break
-            except Exception:
+            except Exception as e:
                 continue
 
         return news_items
-    except Exception:
+    except Exception as e:
         return []

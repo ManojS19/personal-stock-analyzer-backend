@@ -22,18 +22,37 @@ class StockDataService:
         for sym in search_symbols:
             try:
                 ticker = yf.Ticker(sym)
-                # Check for existence with history
-                hist = ticker.history(period="1d")
+                # Check for existence with history - fetch 5d to calculate yesterday's gain too
+                hist = ticker.history(period="5d")
                 if hist.empty:
                     continue
                     
                 info = ticker.info
                 current_price = hist['Close'].iloc[-1]
                 
-                # Get previous close
-                prev_close = info.get('previousClose', current_price)
-                change = current_price - prev_close
-                change_percent = (change / prev_close * 100) if prev_close > 0 else 0
+                # Get close prices (Previous Close = Yesterday Close)
+                # If we have enough data:
+                # current_price = T
+                # prev_close (Yesterday Close) = T-1
+                # day_before_close = T-2
+                
+                if len(hist) >= 2:
+                    prev_close = hist['Close'].iloc[-2]
+                else:
+                    prev_close = info.get('previousClose', current_price)
+
+                if len(hist) >= 3:
+                    day_before_close = hist['Close'].iloc[-3]
+                else:
+                    day_before_close = prev_close
+
+                # Today's Change (Live/Current - Yesterday Close)
+                today_change = current_price - prev_close
+                today_change_percent = (today_change / prev_close * 100) if prev_close > 0 else 0
+                
+                # Yesterday's Change (Yesterday Close - Day Before Close)
+                yesterday_change = prev_close - day_before_close
+                yesterday_change_percent = (yesterday_change / day_before_close * 100) if day_before_close > 0 else 0
                 
                 # Determine currency based on actual sym found
                 currency = "₹" if sym.endswith((".NS", ".BO")) else "$"
@@ -43,9 +62,12 @@ class StockDataService:
                     "name": info.get('longName', sym),
                     "price": float(current_price),
                     "currency": currency,
-                    "change": float(change_percent),
-                    "changeAmount": float(change),
+                    "change": float(today_change_percent),
+                    "changeAmount": float(today_change),
                     "previousClose": float(prev_close),
+                    "dayBeforeClose": float(day_before_close),
+                    "yesterdayChange": float(yesterday_change),
+                    "yesterdayChangePercent": float(yesterday_change_percent),
                     "volume": int(info.get('volume', 0)),
                     "marketCap": info.get('marketCap', 0),
                     "peRatio": info.get('trailingPE', 0),
